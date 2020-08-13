@@ -1,9 +1,7 @@
+import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * This program solves the game KenKen using Depth First Search (DFS) (w/ backtracking).
@@ -19,32 +17,20 @@ public class KenKen {
     private static int boardSize;   // size of board (3,4, or 6 using test files, but could be of any int size)
     private static Point endPoint;  // last position (bottom right point) on board
     private static HashMap<Point, Cage> mapOfCageAtPoints;    // HashMap used to reference Cage (value) from Point (key)
+    private static String fileName; // String name of KenKen .txt file
 
     /**
-     * main - prompts user for file, calls solveRec on empty board at position (0,0), prints solved board
+     * main - calls solveRec on empty board at position (0,0)
      */
     public static void main(String[] args) {
-        // get file
-        Scanner keyboard = new Scanner(System.in);
-        System.out.println("Enter file name: ");
-        String fileName = keyboard.next();
-
-        // read file - call readFile()
-        readFile(fileName);
+        // read file
+        readFile();
         // set new starting index at (0,0)
         Point startIndex = new Point(0, 0);
-        // solve (call recursive method)
-        boolean solved = solveRec(board, startIndex);
-        if (solved) {
-            System.out.println("Solution to KenKen puzzle:");
-            System.out.println();
-            // print board with solutions
-            for (int[] row : board)
-                System.out.println(Arrays.toString(row));
-        } else {
-            // no solution found, print message
-            System.out.println("No solution found for " + boardSize + "x" + boardSize +" KenKen board.");
-        }
+        // solve (call recursive method with 2D array board and 0,0 starting index)
+        solveRec(board, startIndex);
+        // display solved board w/ Swing GUI
+        new GUI();
     }
 
     /**
@@ -81,11 +67,14 @@ public class KenKen {
     }
 
     /**
-     * readFile() - reads file, instantiates instance variables, creates Cages
-     * @param fileName file to read (passed in main)
+     * readFile() - gets file via user input, reads file, instantiates instance variables, creates Cages
      */
-    private static void readFile(String fileName) {
+    private static void readFile() {
+        // get user input, instantiate fileName
+        fileName = JOptionPane.showInputDialog(null, "Enter File Name:");
+
         try {
+            // create new Scanner
             Scanner file = new Scanner(new File(fileName));
             // instantiate boardSize with first int value
             boardSize = file.nextInt();
@@ -98,20 +87,24 @@ public class KenKen {
 
             // skip line total is on
             file.nextLine();
-            // read groups
+            // read cages
             while (file.hasNextLine()) {
                 // get line
                 String line = file.nextLine();
-                // split line into arr[]
-                String arr[] = line.split(" ");             // line.split("\\s+") splits on any whitespace
+                // split line into array
+                String[] arr = line.split(" ");
+
                 // Create new Cage
-                Cage c = new Cage(Integer.parseInt(arr[0]), arr[1].charAt(0), getPoints(arr));
+                Cage c = new Cage(Integer.parseInt(arr[0]), arr[1].charAt(0), getPoints(arr), getRandColor());
+
                 // for each point in cage, add to mapOfCageAtPoints, with point as key, cage (c) as value
                 for (Point p : c.listOfCagePoints) {
                     mapOfCageAtPoints.put(p, c);
-                    //System.out.println(p.x + " " + p.y + " " + mapOfCageAtPoints.get(p));
                 }
             }
+            // close scanner
+            file.close();
+
         } catch (Exception e) {
             System.err.println("Error reading file: " + e.getMessage());
         }
@@ -122,7 +115,7 @@ public class KenKen {
      * @param arr String array of file line read
      * @return Point array of points in group
      */
-    private static Point[] getPoints(String arr[]) {
+    private static Point[] getPoints(String[] arr) {
         // convert arr to arrayList (so I can use ArrayList's .remove(Object) method)
         ArrayList<String> arrList = new ArrayList<>(Arrays.asList(arr));
         // remove empty string that may or may not be in arr due to extra space (extra space is only in 4x4 file)
@@ -154,20 +147,22 @@ public class KenKen {
         // get row and col from index Point
         int row = index.x;
         int col = index.y;
-        // get cage at index (look in mapOfCageAtPoints HashMap for value (cage) at key (index))
+        // get Cage at index position
         Cage cage = mapOfCageAtPoints.get(index);
 
-
+        // get number of filled listOfCagePoints in cage (filledPositions = 1 because you assume value will be placed in cage)
         int filledPositions = 1;
-        int cagePositionEqualsOne = 0;
-        // get number of filled listOfCagePoints in cage (filledPositions = 1 because you assume value will be placed in cage too)
-        // Also get number of cage listOfCagePoints that equal 1
-        // (used if cageTotalWithValue = total, but there are still empty position, but that empty position can equal 1)
+        // boolean denoting if a point in listOfCagePoints contains a value that equals 1, set to false by default
+        // (used if cageTotalWithValue = total, but there are still empty positions, but that empty position can equal 1)
+        boolean cagePositionEqualsOne = false;
+        // iterate listOfCagePoints
         for (Point p : cage.listOfCagePoints) {
+            // count filled position on board
             if (board[p.x][p.y] != 0)
                 filledPositions++;
+            // determine if Cage has a position where the value = 1
             if (board[p.x][p.y] == 1)
-                cagePositionEqualsOne++;
+                cagePositionEqualsOne = true;
         }
 
         // get total value of cage with index included (call getCageTotalWithValue() method)
@@ -178,20 +173,21 @@ public class KenKen {
             // if cage has reached it's total and all listOfCagePoints are filled, return true
             if (cageTotalWithValue == cage.total && filledPositions == cage.listOfCagePoints.length)
                 return true;
-            // else if cage total hasn't been reached yet but there are still empty listOfCagePoints, return true
-            else if (cageTotalWithValue < cage.total && filledPositions < cage.listOfCagePoints.length)
-                return true;
-            // else if cage total is more than the total it should be, and there are still empty listOfCagePoints, and
-            // the cage op is - or / (ie. total will be reduced later), return true
-            else if (cageTotalWithValue > cage.total && filledPositions < cage.listOfCagePoints.length
-                    && cage.op == '-' || cage.op == '/')
-                return true;
-            // if all listOfCagePoints aren't filled, but it multiplies up to the total,
-            // and a listOfCagePoints can still be 1, return true
-            else return (cageTotalWithValue == cage.total && filledPositions < cage.listOfCagePoints.length
-                    && cagePositionEqualsOne <= 0 && cage.op == '*');
+            // else if there are still empty listOfCagePoints:
+            else if (filledPositions < cage.listOfCagePoints.length) {
+                // if cage total hasn't been reached yet (still space to add in more values), return true
+                if (cageTotalWithValue < cage.total)
+                    return true;
+                // else if cage total is more than the total it should be and
+                // the cage op is '-' or '/' (ie. total will be reduced later), return true
+                else if (cageTotalWithValue > cage.total && cage.op == '-' || cage.op == '/')
+                    return true;
+                // if all listOfCagePoints aren't filled, but it multiplies up to the total,
+                // and there is not a cage position that equals 1 (!cagePositionEqualsOne), return true
+                else return (cageTotalWithValue == cage.total && !cagePositionEqualsOne && cage.op == '*');
+            }
         }
-        // value cannot be placed in cage at this index, return false
+        // value cannot be placed at this index (checkRow/checkCol returned false), return false
         return false;
     }
 
@@ -206,13 +202,16 @@ public class KenKen {
         int row = pos.x;
         int col = pos.y;
 
-        if (col == boardSize - 1) {  // if last col reached:
-            row++;                   // increment row
-            col = 0;                 // new col
-        } else {                     // else, only increment col
+        // if last col reached:
+        if (col == boardSize - 1) {
+            // move to next row
+            row++;
+            // start at col 0
+            col = 0;
+        } else {
+            // not at last col, increment col, keep current row
             col++;
         }
-
         // return incremented pos as new Point
         return new Point(row, col);
     }
@@ -226,10 +225,11 @@ public class KenKen {
     private static boolean checkRow(int value, int rowNum){
         // traverse board cols
         for (int i = 0; i < boardSize; i++){
-            // if any listOfCagePoints is row == value, value cannot be placed in this row
+            // if any listOfCagePoints is row == value, value cannot be placed in this row, return false
             if (board[rowNum][i] == value)
                 return false;
         }
+        // value can be placed in this row, return true
         return true;
     }
 
@@ -242,115 +242,250 @@ public class KenKen {
     private static boolean checkCol(int value, int colNum){
         // traverse board rows
         for (int i = 0; i < boardSize; i++){
-            // if any listOfCagePoints is col == value, value cannot be placed in this col
+            // if any listOfCagePoints is col == value, value cannot be placed in this col, return false
             if (board[i][colNum] == value)
                 return false;
         }
+        // value can be placed in this col, return true
         return true;
     }
 
     /**
-     * Cage Object - contains all info related to a cage
+     * getRandColor() - get random Color
+     * @return random Color
+     */
+    private static Color getRandColor(){
+        // create new Random to assign color
+        Random rand = new Random();
+        // return random Color object based on Random.nextInt, bound white
+        // note: nextInt(bound) returns "uniformly distributed int value between 0 and bound"
+        return new Color(rand.nextInt(0xFFFFFF));
+    }
+
+    /**
+     * Cage Object - contains all info related to a Cage on the board
      */
     private static class Cage {
         // Cage instance variables
         private int total;  // group total
         private char op;    // operator for group
         private Point[] listOfCagePoints;   // list of Points that make up Cage
+        private Color color; // random assigned Color
+
+        // Cage max instance variables (only instantiated if cage op is subtraction or division by getCageMaxInfo())
+        private int cageMax;
+        private Point cageMaxIndex;
+        private boolean cageMaxChanged;
 
         /**
          * Cage constructor - initializes Cage instance variables
          * @param total group total to achieve
-         * @param op operator
+         * @param op cage operator
          * @param listOfCagePoints array of Points in group
+         * @param color Color value assigned to Cage at creation by getRandColor() function
          */
-        private Cage(int total, char op, Point[] listOfCagePoints) {
+        private Cage(int total, char op, Point[] listOfCagePoints, Color color) {
+            // set Cage instance variables:
             this.total = total;
             this.op = op;
             this.listOfCagePoints = listOfCagePoints;
+            this.color =  color;
         }
 
         /**
-         * getCageTotalWithValue - checks if value can be placed in position given
+         * getCageMaxInfo - instantiates cageMax, cageMaxIndex, cageMaxChanged instance variables, determines their values based on Cage
+         * @param value default/assumed max value
+         * @param index index of value within Cage
+         */
+        private void getCageMaxInfo(int value, Point index){
+            // instantiate cage max info instance variables:
+            // default cage max value is set to value
+            cageMax = value;
+            // default max value index
+            cageMaxIndex = index;
+            // boolean if cage max value has been changed, default = false
+            cageMaxChanged = false;
+
+            // iterate points in listOfCagePoints (search cage for larger max value)
+            for (Point p : listOfCagePoints){
+                // if a value is found larger than current
+                if (board[p.x][p.y] > cageMax){
+                    // set cageMax larger found value
+                    cageMax = board[p.x][p.y];
+                    // set cageMaxIndex to new max's index
+                    cageMaxIndex = p;
+                    // cageMax was changed, set maxChanged to true
+                    cageMaxChanged = true;
+                }
+            }
+        }
+
+        /**
+         * getCageTotalWithValue - checks if value can be placed in position, given
          * cage constrains
          * @param value int value being placed in cage
          * @return int value of result of placing value in cage
          */
         private int getCageTotalWithValue(int value, Point index) {
-            int currentValue = 0;   // current total of cage = 0
-            boolean maxChanged = false;     // maxChanged boolean used for subtraction and division operations
-
-            // ADDITION:
+            // IF ADDITION:
             if (op == '+'){
                 // add up current value(s) of cage
                 for (Point p : listOfCagePoints)
-                    currentValue += board[p.x][p.y];
-                return currentValue + value;
+                    value += board[p.x][p.y];
+                return value;
             }
-            // SUBTRACTION:
+            // IF SUBTRACTION:
             else if (op == '-'){
-                // Get largest value and point in cage:
-                int max = value;
-                Point maxPoint = index;
-                // search cage for larger max value
-                for (Point mp : listOfCagePoints){
-                    if (board[mp.x][mp.y] > max){
-                        max = board[mp.x][mp.y];
-                        maxPoint = mp;
-                        maxChanged = true;
-                    }
-                }
+                // get and instantiate cageMax, cageMaxIndex, cageMaxChanged instance variables
+                getCageMaxInfo(value, index);
+
+                // iterate points in Cage
                 for (Point p : listOfCagePoints){
-                    // subtract each point's value from max (except maxPoint's value)
-                    if (p != maxPoint)
-                        max -= board[p.x][p.y];
+                    // for all values other than maxPoint's value
+                    if (p != cageMaxIndex)
+                        // subtract each point's value from max
+                        cageMax -= board[p.x][p.y];
                 }
-                if (maxChanged)
-                    return max - value;
+                if (cageMaxChanged)
+                    return cageMax - value;
                 else
-                    return max;
+                    return cageMax;
             }
-            // MULTIPLICATION:
+            // IF MULTIPLICATION:
             else if (op == '*'){
-                // set current value = 1 so you don't multiple by 0
-                currentValue = 1;
-                // multiply up current value(s) of cage
+                // iterate points in Cage
                 for (Point p : listOfCagePoints){
-                    // multiply by 0 would break everything, so only multiply current value if position != 0
+                    // for all values where value != 0 (multiplying by 0 will set value = 0)
                     if (board[p.x][p.y] != 0)
-                        currentValue *= board[p.x][p.y];
+                        // multiple each value together
+                        value *= board[p.x][p.y];
                 }
-                return currentValue * value;
+                return value;
             }
-            // DIVISION:
+            // IF DIVISION:
             else if (op == '/'){
-                // Get largest value and point in cage:
-                int max = value;
-                Point maxPoint = index;
-                // search cage for larger max value
-                for (Point mp : listOfCagePoints){
-                    if (board[mp.x][mp.y] > max){
-                        max = board[mp.x][mp.y];
-                        maxPoint = mp;
-                        maxChanged = true;
-                    }
-                }
+                // get and instantiate cageMax, cageMaxIndex, cageMaxChanged instance variables
+                getCageMaxInfo(value, index);
+
+                // iterate points in Cage
                 for (Point p : listOfCagePoints){
                     // divide each point's value from max (except maxPoint's value)
                     // also do not divide max by and position that is 0
-                    if (p != maxPoint && board[p.x][p.y] != 0)
-                        max /= board[p.x][p.y];
+                    if (p != cageMaxIndex && board[p.x][p.y] != 0)
+                        cageMax /= board[p.x][p.y];
                 }
-                if (maxChanged)
-                    return max / value;
+                if (cageMaxChanged)
+                    return cageMax / value;
                 else
-                    return max;
+                    return cageMax;
             }
             // FREE SPACE   (op == '#')
             else {
                 // value must be equal to total in this space
                 return value;
             }
+        }
+    }
+
+    /**
+     * GUI Object - Implement Swing GUI to display solved and unsolved boards side by side
+     * June 2020
+     */
+    private static class GUI {
+
+        /**
+         * boardJPanel() - create JPanel split into grid of boardSize, sets border
+         * @return new JPanel grid layout
+         */
+        private JPanel newJPanelTemplate(){
+            // create new JPanel
+            JPanel panel = new JPanel();
+            // set panel border
+            panel.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
+            // set panel to grid layout based on boardSize
+            panel.setLayout(new GridLayout(boardSize, boardSize, 1, 1));
+            // return panel template
+            return panel;
+        }
+
+        /**
+         * stylePanel() - apply JPanel/JLabel styles
+         * @param label JLabel (either cage total+op or solved value)
+         * @param panel JPanel (board) grid
+         * @param cage current Cage to pull Color value from
+         */
+        private void stylePanel(JLabel label, JPanel panel, Cage cage){
+            label.setOpaque(true);
+            // set background based on cage color
+            label.setBackground(cage.color);
+            // add label to panel
+            panel.add(label);
+        }
+
+        /**
+         * genFrame() - creates JPanel container to hold blank/solvedPanels, creates JFrame to hold container,
+         * defines frame properties
+         * @param blankPanel JPanel grid w/ JLabels corresponding to cage instructions
+         * @param solvedPanel JPanel grid w/ JLabels corresponding to cage solutions
+         */
+        private void genFrame(JPanel blankPanel, JPanel solvedPanel){
+            // container panel to hold blank and solved board panels
+            JPanel container = new JPanel();
+            container.setLayout(new GridLayout(1,2));
+
+            JFrame frame = new JFrame(fileName);
+            // add container to JFrame
+            frame.add(container);
+
+            // add blankPanel to container panel
+            container.add(blankPanel, BorderLayout.CENTER);
+            // add solvedPanel to container panel
+            container.add(solvedPanel, BorderLayout.CENTER);
+
+            // set frame style, size, settings, close operation, etc
+            frame.setPreferredSize(new Dimension(800, 400));
+            frame.setResizable(false);
+            frame.pack();
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setVisible(true);
+        }
+
+        /**
+         * GUI constructor - creates new JFrame, creates container JPanel to hold two boardJPanel grid
+         * layouts (unsolved and solved board), sets JLabels within JPanel grids to display board values
+         */
+        private GUI(){
+            // create blank board panel
+            JPanel blankPanel = newJPanelTemplate();
+            // create solved board panel
+            JPanel solvedPanel = newJPanelTemplate();
+
+            // fill blankPanel grid
+            for (int i = 0; i < board.length; i++){
+                for (int j = 0; j < board[i].length; j++){
+                    // get cage at board pos
+                    Cage c = mapOfCageAtPoints.get(new Point(j, i));
+                    // set label based on cage operator and total
+                    JLabel l = new JLabel(c.total + " " + c.op, SwingConstants.CENTER);
+                    // set panel display properties, display color
+                    stylePanel(l, blankPanel, c);
+                }
+            }
+
+            // fill solvedPanel grid
+            for (int i = 0; i < board.length; i++){
+                for (int j = 0; j < board[i].length; j++){
+                    // get cage at board pos
+                    Cage c = mapOfCageAtPoints.get(new Point(j, i));
+                    // set label based on int value in board array
+                    JLabel l = new JLabel(Integer.toString(board[j][i]), SwingConstants.CENTER);
+                    // set panel display properties, display color
+                    stylePanel(l, solvedPanel, c);
+                }
+            }
+
+            // create frame: add blankPanel and solvedPanel to container panel, add to JFrame, set JFrame style properties, etc
+            genFrame(blankPanel, solvedPanel);
         }
     }
 }
