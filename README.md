@@ -73,3 +73,8 @@ Program recursively solves test file via Depth First Search:
 
 ![Example program output](/example_images/program_output.png)
 
+# Future Work
+
+* Move Cage class to seperate file to improve program modularity and readability
+* Move GUI class to seperate file to improve program modularity and readability
+
