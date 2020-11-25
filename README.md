@@ -1,6 +1,6 @@
 # KenKen
 
-This program solves the game KenKen using Depth First Search. Takes file input from user and places values on a 2D-array ("board") using recursive call within a for-loop. Both the unsolved and solved boards are displayed using Java's Swing GUI.
+This program solves the game [KenKen](https://en.wikipedia.org/wiki/KenKen#General_rules) using a depth-first search algorithm. Takes file input from user and places values on a 2D-array ("board") using recursive call within a for-loop. Both the unsolved and solved boards are displayed using Java's Swing GUI.
 
 Practice with DFS, 2D-arrays, HashMaps, and Java's Swing GUI.
 
